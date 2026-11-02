@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>WaterBit - Proteção contra Alagamentos</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind Configuration para Modo Escuro Customizado -->
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            waterbit: {
+              blue: '#3b82f6',
+              darkbg: '#0d1826',
+              darkcard: 'rgba(21, 34, 50, 0.78)',
+              darkcardborder: 'rgba(51, 65, 85, 0.6)',
+              darknav: '#111d2e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <!-- Phosphor Icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+  <!-- SDKs do Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+  <!-- Arquivo CSS Externo -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="text-slate-800 dark:text-slate-100 antialiased">
+
+  <!-- BACKGROUND COMPONENT -->
+  <div id="bgLayer" class="fixed inset-0 pointer-events-none z-[-1] bg-app-theme transition-all duration-500"></div>
+
+  <div class="app-container">
+    
+    <!-- ABA: INÍCIO (Home) -->
+    <div id="view-home" class="view-content active pt-10">
+      
+      <!-- Header com LOGO WaterBit -->
+      <div class="flex flex-col items-center mb-6">
+        <div class="w-20 h-20 mb-2 relative drop-shadow-lg flex items-center justify-center">
+          <img src="f540bfa883d66bd1aa2afc572920097e95b5cfe9.jpg" 
+               alt="WaterBit Logo" 
+               class="w-full h-full object-contain rounded-2xl"
+               onerror="this.style.display='none'; document.getElementById('svgLogoFallback').style.display='block';">
+          
+          <svg id="svgLogoFallback" viewBox="0 0 200 200" class="w-full h-full hidden" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="logoDropGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#38bdf8"/>
+                <stop offset="50%" stop-color="#3b82f6"/>
+                <stop offset="100%" stop-color="#1d4ed8"/>
+              </linearGradient>
+              <linearGradient id="buildingGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#e0f2fe"/>
+                <stop offset="100%" stop-color="#38bdf8"/>
+              </linearGradient>
+            </defs>
+            <path d="M 100,15 C 100,15 165,85 165,125 C 165,160 135,185 100,185 C 65,185 35,160 35,125 C 35,85 100,15 100,15 Z" fill="url(#logoDropGrad)"/>
+            <rect x="62" y="115" width="14" height="42" rx="2" fill="url(#buildingGrad)"/>
+            <rect x="80" y="95" width="16" height="62" rx="2" fill="url(#buildingGrad)"/>
+            <rect x="100" y="75" width="18" height="82" rx="2" fill="url(#buildingGrad)"/>
+            <rect x="122" y="105" width="14" height="52" rx="2" fill="url(#buildingGrad)"/>
+            <path d="M 42,130 C 50,165 80,172 110,160 C 135,150 150,128 160,125" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+            <circle cx="160" cy="125" r="7" fill="#ffffff"/>
+          </svg>
+        </div>
+
+        <h1 class="text-3xl font-extrabold text-blue-900 dark:text-blue-100 tracking-tight flex items-center gap-0.5">
+          Water<span class="text-blue-500 dark:text-blue-400">Bit</span>
+        </h1>
+        <p class="text-xs font-medium text-blue-800/70 dark:text-blue-200/70 mt-0.5">
+          Tecnologia que protege nossa cidade
+        </p>
+      </div>
+
+      <!-- Barra de Pesquisa -->
+      <div class="glass-card rounded-2xl p-3 mb-5 shadow-sm flex items-center gap-3">
+        <i class="ph ph-magnifying-glass text-gray-400 dark:text-gray-400 text-xl ml-1"></i>
+        <input type="text" placeholder="Pesquisar rua ou CEP" 
+               class="w-full outline-none text-sm text-slate-800 dark:text-slate-100 bg-transparent placeholder-gray-400 dark:placeholder-gray-400">
+      </div>
+
+      <!-- Card Principal de Status Dinâmico (Firebase) -->
+      <div id="homeStatusCard" class="status-normal rounded-3xl p-5 mb-5 shadow-sm transition-all duration-500">
+        <div class="flex items-center gap-3 mb-2">
+          <div id="homeStatusIconBg" class="w-9 h-9 rounded-full bg-white/50 dark:bg-black/20 flex items-center justify-center shrink-0">
+            <i id="homeStatusIcon" class="ph-fill ph-check-circle text-2xl"></i>
+          </div>
+          <h2 id="homeStatusTitle" class="text-lg font-bold">Situação normal</h2>
+        </div>
+        <p id="homeStatusDesc" class="text-xs opacity-90 leading-relaxed font-normal">
+          Não há riscos de alagamento próximos à sua região.
+        </p>
+        
+        <!-- Métricas Rápidas IoT -->
+        <div class="mt-4 pt-3 border-t border-black/10 dark:border-white/10 grid grid-cols-2 gap-2 text-xs">
+          <div>
+            <span class="opacity-75 block text-[10px] uppercase font-semibold">Ocupação Bueiro #01</span>
+            <span id="homeWaterLevel" class="font-bold text-base">--%</span>
+          </div>
+          <div>
+            <span class="opacity-75 block text-[10px] uppercase font-semibold">Distância da Água</span>
+            <span id="homeWaterDist" class="font-bold text-base">-- cm</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card do Mapa Interativo -->
+      <div class="glass-card rounded-3xl p-4 flex items-center justify-between cursor-pointer shadow-sm relative overflow-hidden group" 
+           onclick="switchTab('map')">
+        <div class="relative z-10 pr-2">
+          <div class="flex items-center gap-2 font-bold text-blue-900 dark:text-blue-100 mb-1 text-sm">
+            <i class="ph ph-map-trifold text-blue-500 text-lg"></i>
+            Mapa da região
+          </div>
+          <p class="text-xs text-slate-600 dark:text-slate-300 leading-snug">
+            Confira os pontos monitorados e áreas de risco.
+          </p>
+        </div>
+        <div class="w-10 h-10 rounded-full bg-blue-500/10 dark:bg-blue-400/20 flex items-center justify-center z-10 shrink-0 group-hover:scale-105 transition-transform">
+          <i class="ph ph-arrow-right text-blue-500 dark:text-blue-400 text-lg"></i>
+        </div>
+        <div class="absolute right-0 top-0 w-36 h-full opacity-20 dark:opacity-30 mock-map"></div>
+      </div>
+    </div>
+
+    <!-- ABA: MAPA -->
+    <div id="view-map" class="view-content pt-10">
+      <h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-4 pl-1">Mapa</h2>
+      
+      <div class="glass-card rounded-2xl p-3 mb-4 shadow-sm flex items-center gap-3">
+        <i class="ph ph-magnifying-glass text-gray-400 text-xl ml-1"></i>
+        <input type="text" placeholder="Pesquisar rua, CEP ou bairro" 
+               class="w-full outline-none text-sm text-slate-800 dark:text-slate-100 bg-transparent placeholder-gray-400">
+      </div>
+
+      <div class="flex gap-2 mb-5 overflow-x-auto pb-2 scrollbar-hide">
+        <button class="px-4 py-1.5 rounded-full bg-blue-500 text-white text-xs font-semibold shrink-0 shadow-md">Todos</button>
+        <button class="px-4 py-1.5 rounded-full glass-card text-xs font-medium shrink-0 flex items-center gap-1.5 border border-white/40">
+          <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Normais
+        </button>
+        <button class="px-4 py-1.5 rounded-full glass-card text-xs font-medium shrink-0 flex items-center gap-1.5 border border-white/40">
+          <span class="w-2 h-2 rounded-full bg-amber-500"></span> Atenção
+        </button>
+        <button class="px-4 py-1.5 rounded-full glass-card text-xs font-medium shrink-0 flex items-center gap-1.5 border border-white/40">
+          <span class="w-2 h-2 rounded-full bg-red-500"></span> Críticos
+        </button>
+      </div>
+
+      <div class="w-full h-96 rounded-3xl mock-map shadow-inner relative overflow-hidden glass-card border border-white/40">
+        <svg class="absolute top-0 left-0 w-full h-full opacity-35 dark:opacity-25" preserveAspectRatio="none" viewBox="0 0 400 400">
+          <path d="M-20,320 C120,280 180,360 260,310 C320,270 360,340 420,300 L420,420 L-20,420 Z" fill="#3b82f6"/>
+        </svg>
+
+        <div class="absolute top-1/3 left-1/4 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer">
+          <div id="mapPinReal" class="w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border-2 border-emerald-500 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-md z-10 transition-transform hover:scale-110">
+             <i class="ph-fill ph-check-circle text-lg"></i>
+          </div>
+          <span class="text-[9px] font-bold bg-white/90 dark:bg-slate-900/90 text-slate-800 dark:text-slate-200 px-1.5 py-0.5 rounded shadow mt-1">Bueiro #01</span>
+        </div>
+
+        <div class="absolute top-1/2 left-3/4 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+          <div class="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-950/80 border border-amber-500 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-sm z-10">
+             <i class="ph-fill ph-warning-circle"></i>
+          </div>
+          <span class="text-[9px] font-medium bg-white/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300 px-1 rounded mt-0.5">#017</span>
+        </div>
+
+        <div class="absolute top-3/4 left-1/3 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+          <div class="w-8 h-8 rounded-full bg-red-100 dark:bg-red-950/80 border border-red-500 flex items-center justify-center text-red-600 dark:text-red-400 shadow-sm z-10">
+             <i class="ph-fill ph-warning-octagon"></i>
+          </div>
+          <span class="text-[9px] font-medium bg-white/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300 px-1 rounded mt-0.5">#011</span>
+        </div>
+
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+          <div class="w-6 h-6 bg-blue-500 rounded-full border-4 border-white dark:border-slate-800 shadow-lg flex items-center justify-center relative">
+            <div class="absolute w-12 h-12 bg-blue-400 rounded-full animate-ping opacity-30"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ABA: ALERTAS -->
+    <div id="view-alerts" class="view-content pt-10">
+      <h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-4 pl-1">Alertas</h2>
+      
+      <div class="flex gap-2 mb-5 overflow-x-auto pb-2 scrollbar-hide">
+        <button class="px-4 py-1.5 rounded-full bg-blue-500 text-white text-xs font-semibold shrink-0 shadow-md">Todos</button>
+        <button class="px-4 py-1.5 rounded-full glass-card text-xs font-medium shrink-0 flex items-center gap-1.5 border border-white/40">
+          <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Normais
+        </button>
+        <button class="px-4 py-1.5 rounded-full glass-card text-xs font-medium shrink-0 flex items-center gap-1.5 border border-white/40">
+          <span class="w-2 h-2 rounded-full bg-amber-500"></span> Atenção
+        </button>
+        <button class="px-4 py-1.5 rounded-full glass-card text-xs font-medium shrink-0 flex items-center gap-1.5 border border-white/40">
+          <span class="w-2 h-2 rounded-full bg-red-500"></span> Críticos
+        </button>
+      </div>
+
+      <div class="flex flex-col gap-3.5">
+        
+        <div id="alertCardReal" class="glass-card rounded-3xl p-4 flex gap-3.5 items-center shadow-sm relative overflow-hidden">
+          <div id="alertColorReal" class="absolute left-0 top-0 bottom-0 w-2 bg-emerald-500"></div>
+          
+          <div id="alertIconBgReal" class="w-11 h-11 rounded-full bg-emerald-100 dark:bg-emerald-950/80 flex items-center justify-center text-emerald-500 text-2xl shrink-0 ml-1">
+            <i id="alertIconReal" class="ph-fill ph-check-circle"></i>
+          </div>
+          
+          <div class="flex-1 min-w-0">
+            <div class="flex justify-between items-start mb-0.5">
+              <h3 class="font-bold text-slate-800 dark:text-slate-100 text-sm truncate">Bueiro #01 (IoT Ao Vivo)</h3>
+              <span id="alertTimeReal" class="text-[10px] text-slate-400 dark:text-slate-400 font-medium shrink-0 ml-1">Ao vivo</span>
+            </div>
+            <p id="alertStatusTextReal" class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-0.5">Situação normal</p>
+            <p class="text-[11px] text-slate-500 dark:text-slate-300">Nível da água: <span id="alertLevelReal" class="font-bold">--</span>%</p>
+            <p class="text-[10px] text-slate-400 dark:text-slate-400 mt-0.5 truncate">Rua Principal / Maquete FabLab</p>
+          </div>
+          <i class="ph ph-arrow-right text-slate-300 dark:text-slate-600"></i>
+        </div>
+
+        <div class="glass-card rounded-3xl p-4 flex gap-3.5 items-center shadow-sm relative overflow-hidden opacity-90">
+          <div class="absolute left-0 top-0 bottom-0 w-2 bg-amber-500"></div>
+          <div class="w-11 h-11 rounded-full bg-amber-100 dark:bg-amber-950/80 flex items-center justify-center text-amber-500 text-2xl shrink-0 ml-1">
+            <i class="ph-fill ph-warning-circle"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex justify-between items-start mb-0.5">
+              <h3 class="font-bold text-slate-800 dark:text-slate-100 text-sm truncate">Bueiro #017</h3>
+              <span class="text-[10px] text-slate-400 font-medium shrink-0">Há 1 h</span>
+            </div>
+            <p class="text-xs font-semibold text-amber-600 dark:text-amber-400 mb-0.5">Situação de atenção</p>
+            <p class="text-[11px] text-slate-500 dark:text-slate-300">Nível da água: 58%</p>
+            <p class="text-[10px] text-slate-400 mt-0.5 truncate">Av. Itavuvu, 456 - Jardim São Paulo</p>
+          </div>
+          <i class="ph ph-arrow-right text-slate-300 dark:text-slate-600"></i>
+        </div>
+
+        <div class="glass-card rounded-3xl p-4 flex gap-3.5 items-center shadow-sm relative overflow-hidden opacity-90">
+          <div class="absolute left-0 top-0 bottom-0 w-2 bg-red-500"></div>
+          <div class="w-11 h-11 rounded-full bg-red-100 dark:bg-red-950/80 flex items-center justify-center text-red-500 text-2xl shrink-0 ml-1">
+            <i class="ph-fill ph-warning-octagon"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex justify-between items-start mb-0.5">
+              <h3 class="font-bold text-slate-800 dark:text-slate-100 text-sm truncate">Bueiro #011</h3>
+              <span class="text-[10px] text-slate-400 font-medium shrink-0">Há 1 h</span>
+            </div>
+            <p class="text-xs font-semibold text-red-600 dark:text-red-400 mb-0.5">Situação crítica</p>
+            <p class="text-[11px] text-slate-500 dark:text-slate-300">Nível da água: 82%</p>
+            <p class="text-[10px] text-slate-400 mt-0.5 truncate">Rua das Flores, 123 - Centro</p>
+          </div>
+          <i class="ph ph-arrow-right text-slate-300 dark:text-slate-600"></i>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ABA: PERFIL / CONFIG -->
+    <div id="view-config" class="view-content pt-10">
+      <h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-5 pl-1">Perfil</h2>
+      
+      <div class="glass-card rounded-3xl p-4 mb-5 flex items-center gap-4">
+        <div class="w-14 h-14 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-500 dark:text-blue-400 text-3xl shrink-0">
+          <i class="ph-fill ph-user"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-slate-800 dark:text-slate-100 text-base">Meu WaterBit</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Personalize sua experiência</p>
+        </div>
+      </div>
+
+      <div class="glass-card rounded-3xl p-4 mb-4">
+        <div class="flex items-center gap-2 mb-3">
+          <i class="ph-fill ph-palette text-blue-500 text-lg"></i>
+          <h4 class="font-bold text-slate-800 dark:text-slate-100 text-xs uppercase tracking-wider">Aparência</h4>
+        </div>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-3">Tema do aplicativo</p>
+
+        <div class="grid grid-cols-3 gap-2.5">
+          <button id="btnThemeLight" onclick="setAppTheme('light')" 
+                  class="rounded-2xl p-3 flex flex-col items-center justify-center gap-1.5 transition-all border border-transparent">
+            <i class="ph ph-sun text-2xl"></i>
+            <span class="text-[11px] font-semibold">Claro</span>
+          </button>
+
+          <button id="btnThemeAuto" onclick="setAppTheme('auto')" 
+                  class="rounded-2xl p-3 flex flex-col items-center justify-center gap-1.5 transition-all border border-transparent">
+            <i class="ph ph-device-mobile text-2xl"></i>
+            <span class="text-[11px] font-semibold">Automático</span>
+          </button>
+
+          <button id="btnThemeDark" onclick="setAppTheme('dark')" 
+                  class="rounded-2xl p-3 flex flex-col items-center justify-center gap-1.5 transition-all border border-transparent">
+            <i class="ph ph-moon text-2xl"></i>
+            <span class="text-[11px] font-semibold">Escuro</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="glass-card rounded-3xl p-1 mb-4 divide-y divide-slate-100 dark:divide-slate-800">
+        <div class="flex items-center justify-between p-3.5">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-500">
+              <i class="ph-fill ph-bell"></i>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-slate-800 dark:text-slate-100">Notificações</p>
+              <p class="text-[10px] text-slate-400">Alertas de risco e da região</p>
+            </div>
+          </div>
+          <button id="toggleNotifBtn" onclick="toggleSwitch('toggleNotifBtn')" class="w-11 h-6 bg-blue-500 rounded-full p-0.5 transition-colors duration-200">
+            <div class="w-5 h-5 bg-white rounded-full shadow-md transform translate-x-5 transition-transform duration-200"></div>
+          </button>
+        </div>
+        
+        <div class="flex items-center justify-between p-3.5">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-500">
+              <i class="ph-fill ph-map-pin"></i>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-slate-800 dark:text-slate-100">Localização</p>
+              <p class="text-[10px] text-slate-400">Usar minha localização</p>
+            </div>
+          </div>
+          <button id="toggleLocBtn" onclick="toggleSwitch('toggleLocBtn')" class="w-11 h-6 bg-blue-500 rounded-full p-0.5 transition-colors duration-200">
+            <div class="w-5 h-5 bg-white rounded-full shadow-md transform translate-x-5 transition-transform duration-200"></div>
+          </button>
+        </div>
+      </div>
+      
+      <div class="glass-card rounded-3xl p-1 divide-y divide-slate-100 dark:divide-slate-800">
+        <div class="flex items-center justify-between p-3.5 cursor-pointer">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+              <i class="ph-fill ph-star"></i>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-slate-800 dark:text-slate-100">Favoritos</p>
+              <p class="text-[10px] text-slate-400">Meus locais salvos</p>
+            </div>
+          </div>
+          <i class="ph ph-caret-right text-slate-400"></i>
+        </div>
+
+        <div class="flex items-center justify-between p-3.5 cursor-pointer">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+              <i class="ph-fill ph-info"></i>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-slate-800 dark:text-slate-100">Sobre o WaterBit</p>
+              <p class="text-[10px] text-slate-400">Versão 1.0.0</p>
+            </div>
+          </div>
+          <i class="ph ph-caret-right text-slate-400"></i>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- BARRA DE NAVEGAÇÃO INFERIOR -->
+    <nav class="bottom-nav">
+      <a href="#" class="nav-item active" data-target="view-home" onclick="switchTab('home', this)">
+        <i class="ph-fill ph-house"></i>
+        <span>Início</span>
+      </a>
+      <a href="#" class="nav-item" data-target="view-map" onclick="switchTab('map', this)">
+        <i class="ph ph-map-trifold"></i>
+        <span>Mapa</span>
+      </a>
+      <a href="#" class="nav-item" data-target="view-alerts" onclick="switchTab('alerts', this)">
+        <i class="ph ph-bell"></i>
+        <span>Alertas</span>
+      </a>
+      <a href="#" class="nav-item" data-target="view-config" onclick="switchTab('config', this)">
+        <i class="ph ph-gear"></i>
+        <span>Config</span>
+      </a>
+    </nav>
+  </div>
+
+  <!-- Arquivo JS Externo -->
+  <script src="script.js"></script>
+</body>
+</html>
