@@ -1,0 +1,22 @@
+{
+  "name": "WaterBit - Proteção contra Alagamentos",
+  "short_name": "WaterBit",
+  "description": "Sistema de monitoramento e alerta de alagamentos urbanos em tempo real.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0d1826",
+  "theme_color": "#0d1826",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "f540bfa883d66bd1aa2afc572920097e95b5cfe9.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "f540bfa883d66bd1aa2afc572920097e95b5cfe9.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}
