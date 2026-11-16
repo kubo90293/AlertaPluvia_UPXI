@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#0d1826">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="apple-touch-icon" href="f540bfa883d66bd1aa2afc572920097e95b5cfe9.jpg">
+  <link rel="apple-touch-icon" href="icon.png">
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -38,6 +38,10 @@
   <!-- Phosphor Icons -->
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
+  <!-- Leaflet Maps (Mapa Real Gratuito) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <!-- SDKs do Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
@@ -52,13 +56,15 @@
 
   <div class="app-container">
     
+    <!-- ========================================== -->
     <!-- ABA: INÍCIO (Home) -->
+    <!-- ========================================== -->
     <div id="view-home" class="view-content active pt-10">
       
       <!-- Header com LOGO WaterBit -->
       <div class="flex flex-col items-center mb-6">
         <div class="w-20 h-20 mb-2 relative drop-shadow-lg flex items-center justify-center">
-          <img src="f540bfa883d66bd1aa2afc572920097e95b5cfe9.jpg" 
+          <img src="icon.png" 
                alt="WaterBit Logo" 
                class="w-full h-full object-contain rounded-2xl"
                onerror="this.style.display='none'; document.getElementById('svgLogoFallback').style.display='block';">
@@ -93,11 +99,12 @@
         </p>
       </div>
 
-      <!-- Barra de Pesquisa -->
+      <!-- Barra de Pesquisa (Leva direto ao mapa filtrando) -->
       <div class="glass-card rounded-2xl p-3 mb-5 shadow-sm flex items-center gap-3">
         <i class="ph ph-magnifying-glass text-gray-400 dark:text-gray-400 text-xl ml-1"></i>
-        <input type="text" placeholder="Pesquisar rua ou CEP" 
+        <input id="homeSearchInput" onkeydown="if(event.key==='Enter') searchFromHome()" type="text" placeholder="Pesquisar rua ou bueiro..." 
                class="w-full outline-none text-sm text-slate-800 dark:text-slate-100 bg-transparent placeholder-gray-400 dark:placeholder-gray-400">
+        <button onclick="searchFromHome()" class="text-xs font-semibold text-blue-500 px-2 py-1 rounded-lg hover:bg-blue-500/10">Ir</button>
       </div>
 
       <!-- Card Principal de Status Dinâmico (Firebase) -->
@@ -134,7 +141,7 @@
             Mapa da região
           </div>
           <p class="text-xs text-slate-600 dark:text-slate-300 leading-snug">
-            Confira os pontos monitorados e áreas de risco.
+            Confira os pontos monitorados em tempo real na cidade.
           </p>
         </div>
         <div class="w-10 h-10 rounded-full bg-blue-500/10 dark:bg-blue-400/20 flex items-center justify-center z-10 shrink-0 group-hover:scale-105 transition-transform">
@@ -144,83 +151,101 @@
       </div>
     </div>
 
-    <!-- ABA: MAPA -->
+    <!-- ========================================== -->
+    <!-- ABA: MAPA REAL (LEAFLET.JS) -->
+    <!-- ========================================== -->
     <div id="view-map" class="view-content pt-10">
-      <h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-4 pl-1">Mapa</h2>
+      <div class="flex items-center justify-between mb-4 pl-1 pr-1">
+        <h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Mapa</h2>
+        <span class="text-[11px] font-medium px-2.5 py-1 rounded-full glass-card text-blue-600 dark:text-blue-300 flex items-center gap-1">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Sorocaba • Ao vivo
+        </span>
+      </div>
       
-      <div class="glass-card rounded-2xl p-3 mb-4 shadow-sm flex items-center gap-3">
+      <!-- Pesquisa Funcional no Mapa -->
+      <div class="glass-card rounded-2xl p-3 mb-3.5 shadow-sm flex items-center gap-3">
         <i class="ph ph-magnifying-glass text-gray-400 text-xl ml-1"></i>
-        <input type="text" placeholder="Pesquisar rua, CEP ou bairro" 
+        <input id="mapSearchInput" oninput="filterRealMap()" type="text" placeholder="Pesquisar bueiro, rua ou avenida..." 
                class="w-full outline-none text-sm text-slate-800 dark:text-slate-100 bg-transparent placeholder-gray-400">
+        <button onclick="clearMapSearch()" id="clearSearchBtn" class="hidden text-slate-400 hover:text-slate-600">
+          <i class="ph-fill ph-x-circle text-lg"></i>
+        </button>
       </div>
 
-      <div class="flex gap-2 mb-5 overflow-x-auto pb-2 scrollbar-hide">
-        <button class="px-4 py-1.5 rounded-full bg-blue-500 text-white text-xs font-semibold shrink-0 shadow-md">Todos</button>
-        <button class="px-4 py-1.5 rounded-full glass-card text-xs font-medium shrink-0 flex items-center gap-1.5 border border-white/40">
+      <!-- Filtros Interativos do Mapa -->
+      <div id="mapFilterGroup" class="flex gap-2 mb-4 overflow-x-auto pb-1.5 scrollbar-hide">
+        <button onclick="setMapFilter('all', this)" class="map-filter-btn px-4 py-1.5 rounded-full bg-blue-500 text-white text-xs font-semibold shrink-0 shadow-md transition-all">Todos</button>
+        <button onclick="setMapFilter('normal', this)" class="map-filter-btn px-4 py-1.5 rounded-full glass-card text-xs font-medium shrink-0 flex items-center gap-1.5 border border-white/40 transition-all">
           <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Normais
         </button>
-        <button class="px-4 py-1.5 rounded-full glass-card text-xs font-medium shrink-0 flex items-center gap-1.5 border border-white/40">
+        <button onclick="setMapFilter('attention', this)" class="map-filter-btn px-4 py-1.5 rounded-full glass-card text-xs font-medium shrink-0 flex items-center gap-1.5 border border-white/40 transition-all">
           <span class="w-2 h-2 rounded-full bg-amber-500"></span> Atenção
         </button>
-        <button class="px-4 py-1.5 rounded-full glass-card text-xs font-medium shrink-0 flex items-center gap-1.5 border border-white/40">
+        <button onclick="setMapFilter('critical', this)" class="map-filter-btn px-4 py-1.5 rounded-full glass-card text-xs font-medium shrink-0 flex items-center gap-1.5 border border-white/40 transition-all">
           <span class="w-2 h-2 rounded-full bg-red-500"></span> Críticos
         </button>
       </div>
 
-      <div class="w-full h-96 rounded-3xl mock-map shadow-inner relative overflow-hidden glass-card border border-white/40">
-        <svg class="absolute top-0 left-0 w-full h-full opacity-35 dark:opacity-25" preserveAspectRatio="none" viewBox="0 0 400 400">
-          <path d="M-20,320 C120,280 180,360 260,310 C320,270 360,340 420,300 L420,420 L-20,420 Z" fill="#3b82f6"/>
-        </svg>
+      <!-- Container do Mapa Interativo Real -->
+      <div class="w-full h-[380px] rounded-3xl shadow-lg relative overflow-hidden glass-card border border-white/40">
+        <div id="leafletMap" class="w-full h-full z-0"></div>
 
-        <div class="absolute top-1/3 left-1/4 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer">
-          <div id="mapPinReal" class="w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border-2 border-emerald-500 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-md z-10 transition-transform hover:scale-110">
-             <i class="ph-fill ph-check-circle text-lg"></i>
-          </div>
-          <span class="text-[9px] font-bold bg-white/90 dark:bg-slate-900/90 text-slate-800 dark:text-slate-200 px-1.5 py-0.5 rounded shadow mt-1">Bueiro #01</span>
+        <!-- Botões Flutuantes no Mapa (GPS + Centralizar) -->
+        <div class="absolute top-3 right-3 z-[400] flex flex-col gap-2">
+          <button onclick="locateUserOnMap()" title="Minha localização"
+                  class="w-10 h-10 rounded-2xl bg-white/95 dark:bg-slate-900/95 text-blue-500 shadow-md border border-slate-200/70 dark:border-slate-700/70 flex items-center justify-center active:scale-95 transition-transform">
+            <i class="ph-fill ph-crosshair text-xl"></i>
+          </button>
+          <button onclick="resetMapView()" title="Ver todos os pontos"
+                  class="w-10 h-10 rounded-2xl bg-white/95 dark:bg-slate-900/95 text-slate-600 dark:text-slate-300 shadow-md border border-slate-200/70 dark:border-slate-700/70 flex items-center justify-center active:scale-95 transition-transform">
+            <i class="ph ph-arrows-out-simple text-lg"></i>
+          </button>
         </div>
 
-        <div class="absolute top-1/2 left-3/4 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
-          <div class="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-950/80 border border-amber-500 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-sm z-10">
-             <i class="ph-fill ph-warning-circle"></i>
+        <!-- Card Flutuante ao Clicar no Pino -->
+        <div id="mapPinPopup" class="hidden absolute bottom-3 left-3 right-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl p-3.5 shadow-xl border border-slate-200/70 dark:border-slate-700/70 z-[400] transition-all">
+          <div class="flex justify-between items-start">
+            <div>
+              <span id="popupBadge" class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Normal</span>
+              <h4 id="popupTitle" class="font-bold text-slate-800 dark:text-slate-100 text-sm mt-1">Bueiro #01</h4>
+              <p id="popupAddress" class="text-[11px] text-slate-500 dark:text-slate-400">Rua Principal</p>
+            </div>
+            <button onclick="closeMapPopup()" class="text-slate-400 hover:text-slate-600 p-1">
+              <i class="ph ph-x text-base"></i>
+            </button>
           </div>
-          <span class="text-[9px] font-medium bg-white/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300 px-1 rounded mt-0.5">#017</span>
-        </div>
-
-        <div class="absolute top-3/4 left-1/3 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
-          <div class="w-8 h-8 rounded-full bg-red-100 dark:bg-red-950/80 border border-red-500 flex items-center justify-center text-red-600 dark:text-red-400 shadow-sm z-10">
-             <i class="ph-fill ph-warning-octagon"></i>
-          </div>
-          <span class="text-[9px] font-medium bg-white/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300 px-1 rounded mt-0.5">#011</span>
-        </div>
-
-        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-          <div class="w-6 h-6 bg-blue-500 rounded-full border-4 border-white dark:border-slate-800 shadow-lg flex items-center justify-center relative">
-            <div class="absolute w-12 h-12 bg-blue-400 rounded-full animate-ping opacity-30"></div>
+          <div class="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-xs">
+            <span class="text-slate-500 dark:text-slate-400">Ocupação atual: <strong id="popupLevel" class="text-slate-800 dark:text-slate-100">--%</strong></span>
+            <button onclick="switchTab('alerts')" class="text-blue-500 font-semibold flex items-center gap-1">Ver alertas <i class="ph ph-arrow-right"></i></button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ABA: ALERTAS -->
+    <!-- ========================================== -->
+    <!-- ABA: ALERTAS (COM FILTROS FUNCIONAIS) -->
+    <!-- ========================================== -->
     <div id="view-alerts" class="view-content pt-10">
       <h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-4 pl-1">Alertas</h2>
       
-      <div class="flex gap-2 mb-5 overflow-x-auto pb-2 scrollbar-hide">
-        <button class="px-4 py-1.5 rounded-full bg-blue-500 text-white text-xs font-semibold shrink-0 shadow-md">Todos</button>
-        <button class="px-4 py-1.5 rounded-full glass-card text-xs font-medium shrink-0 flex items-center gap-1.5 border border-white/40">
+      <!-- Filtros Interativos dos Alertas -->
+      <div id="alertFilterGroup" class="flex gap-2 mb-5 overflow-x-auto pb-2 scrollbar-hide">
+        <button onclick="setAlertFilter('all', this)" class="alert-filter-btn px-4 py-1.5 rounded-full bg-blue-500 text-white text-xs font-semibold shrink-0 shadow-md transition-all">Todos</button>
+        <button onclick="setAlertFilter('normal', this)" class="alert-filter-btn px-4 py-1.5 rounded-full glass-card text-xs font-medium shrink-0 flex items-center gap-1.5 border border-white/40 transition-all">
           <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Normais
         </button>
-        <button class="px-4 py-1.5 rounded-full glass-card text-xs font-medium shrink-0 flex items-center gap-1.5 border border-white/40">
+        <button onclick="setAlertFilter('attention', this)" class="alert-filter-btn px-4 py-1.5 rounded-full glass-card text-xs font-medium shrink-0 flex items-center gap-1.5 border border-white/40 transition-all">
           <span class="w-2 h-2 rounded-full bg-amber-500"></span> Atenção
         </button>
-        <button class="px-4 py-1.5 rounded-full glass-card text-xs font-medium shrink-0 flex items-center gap-1.5 border border-white/40">
+        <button onclick="setAlertFilter('critical', this)" class="alert-filter-btn px-4 py-1.5 rounded-full glass-card text-xs font-medium shrink-0 flex items-center gap-1.5 border border-white/40 transition-all">
           <span class="w-2 h-2 rounded-full bg-red-500"></span> Críticos
         </button>
       </div>
 
-      <div class="flex flex-col gap-3.5">
+      <div id="alertsListContainer" class="flex flex-col gap-3.5">
         
-        <div id="alertCardReal" class="glass-card rounded-3xl p-4 flex gap-3.5 items-center shadow-sm relative overflow-hidden">
+        <!-- CARD REAL CONECTADO AO FIREBASE -->
+        <div id="alertCardReal" data-status="normal" onclick="focusBueiroOnMap('bueiro01')" class="alert-card-item cursor-pointer glass-card rounded-3xl p-4 flex gap-3.5 items-center shadow-sm relative overflow-hidden transition-all duration-300">
           <div id="alertColorReal" class="absolute left-0 top-0 bottom-0 w-2 bg-emerald-500"></div>
           
           <div id="alertIconBgReal" class="w-11 h-11 rounded-full bg-emerald-100 dark:bg-emerald-950/80 flex items-center justify-center text-emerald-500 text-2xl shrink-0 ml-1">
@@ -234,12 +259,13 @@
             </div>
             <p id="alertStatusTextReal" class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-0.5">Situação normal</p>
             <p class="text-[11px] text-slate-500 dark:text-slate-300">Nível da água: <span id="alertLevelReal" class="font-bold">--</span>%</p>
-            <p class="text-[10px] text-slate-400 dark:text-slate-400 mt-0.5 truncate">Rua Principal / Maquete FabLab</p>
+            <p class="text-[10px] text-slate-400 dark:text-slate-400 mt-0.5 truncate">Praça Coronel Fernando Prestes - Centro</p>
           </div>
-          <i class="ph ph-arrow-right text-slate-300 dark:text-slate-600"></i>
+          <i class="ph ph-map-pin text-blue-400 text-lg"></i>
         </div>
 
-        <div class="glass-card rounded-3xl p-4 flex gap-3.5 items-center shadow-sm relative overflow-hidden opacity-90">
+        <!-- CARD ATENÇÃO -->
+        <div data-status="attention" onclick="focusBueiroOnMap('bueiro017')" class="alert-card-item cursor-pointer glass-card rounded-3xl p-4 flex gap-3.5 items-center shadow-sm relative overflow-hidden opacity-90 transition-all duration-300">
           <div class="absolute left-0 top-0 bottom-0 w-2 bg-amber-500"></div>
           <div class="w-11 h-11 rounded-full bg-amber-100 dark:bg-amber-950/80 flex items-center justify-center text-amber-500 text-2xl shrink-0 ml-1">
             <i class="ph-fill ph-warning-circle"></i>
@@ -253,10 +279,11 @@
             <p class="text-[11px] text-slate-500 dark:text-slate-300">Nível da água: 58%</p>
             <p class="text-[10px] text-slate-400 mt-0.5 truncate">Av. Itavuvu, 456 - Jardim São Paulo</p>
           </div>
-          <i class="ph ph-arrow-right text-slate-300 dark:text-slate-600"></i>
+          <i class="ph ph-map-pin text-slate-300 dark:text-slate-600 text-lg"></i>
         </div>
 
-        <div class="glass-card rounded-3xl p-4 flex gap-3.5 items-center shadow-sm relative overflow-hidden opacity-90">
+        <!-- CARD CRÍTICO -->
+        <div data-status="critical" onclick="focusBueiroOnMap('bueiro011')" class="alert-card-item cursor-pointer glass-card rounded-3xl p-4 flex gap-3.5 items-center shadow-sm relative overflow-hidden opacity-90 transition-all duration-300">
           <div class="absolute left-0 top-0 bottom-0 w-2 bg-red-500"></div>
           <div class="w-11 h-11 rounded-full bg-red-100 dark:bg-red-950/80 flex items-center justify-center text-red-500 text-2xl shrink-0 ml-1">
             <i class="ph-fill ph-warning-octagon"></i>
@@ -268,15 +295,35 @@
             </div>
             <p class="text-xs font-semibold text-red-600 dark:text-red-400 mb-0.5">Situação crítica</p>
             <p class="text-[11px] text-slate-500 dark:text-slate-300">Nível da água: 82%</p>
-            <p class="text-[10px] text-slate-400 mt-0.5 truncate">Rua das Flores, 123 - Centro</p>
+            <p class="text-[10px] text-slate-400 mt-0.5 truncate">Av. Dom Aguirre (Altura Ponte Pinheiros)</p>
           </div>
-          <i class="ph ph-arrow-right text-slate-300 dark:text-slate-600"></i>
+          <i class="ph ph-map-pin text-slate-300 dark:text-slate-600 text-lg"></i>
+        </div>
+
+        <!-- CARD NORMAL EXTRA -->
+        <div data-status="normal" onclick="focusBueiroOnMap('bueiro004')" class="alert-card-item cursor-pointer glass-card rounded-3xl p-4 flex gap-3.5 items-center shadow-sm relative overflow-hidden opacity-90 transition-all duration-300">
+          <div class="absolute left-0 top-0 bottom-0 w-2 bg-emerald-500"></div>
+          <div class="w-11 h-11 rounded-full bg-emerald-100 dark:bg-emerald-950/80 flex items-center justify-center text-emerald-500 text-2xl shrink-0 ml-1">
+            <i class="ph-fill ph-check-circle"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex justify-between items-start mb-0.5">
+              <h3 class="font-bold text-slate-800 dark:text-slate-100 text-sm truncate">Bueiro #004</h3>
+              <span class="text-[10px] text-slate-400 font-medium shrink-0">Há 2 h</span>
+            </div>
+            <p class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-0.5">Situação normal</p>
+            <p class="text-[11px] text-slate-500 dark:text-slate-300">Nível da água: 18%</p>
+            <p class="text-[10px] text-slate-400 mt-0.5 truncate">Av. Afonso Vergueiro - Centro</p>
+          </div>
+          <i class="ph ph-map-pin text-slate-300 dark:text-slate-600 text-lg"></i>
         </div>
 
       </div>
     </div>
 
+    <!-- ========================================== -->
     <!-- ABA: PERFIL / CONFIG -->
+    <!-- ========================================== -->
     <div id="view-config" class="view-content pt-10">
       <h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-5 pl-1">Perfil</h2>
       
@@ -380,7 +427,9 @@
 
     </div>
 
+    <!-- ========================================== -->
     <!-- BARRA DE NAVEGAÇÃO INFERIOR -->
+    <!-- ========================================== -->
     <nav class="bottom-nav">
       <a href="#" class="nav-item active" data-target="view-home" onclick="switchTab('home', this)">
         <i class="ph-fill ph-house"></i>
