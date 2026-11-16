@@ -168,7 +168,7 @@ body {
   transform: translateY(-2px);
 }
 
-/* Mapa Simulado */
+/* Miniatura decorativa na Home */
 .mock-map {
   background-image: 
     linear-gradient(rgba(59, 130, 246, 0.12) 1px, transparent 1px),
@@ -177,10 +177,25 @@ body {
   position: relative;
 }
 
-.dark .mock-map {
-  background-image: 
-    linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+/* Ajustes visuais do Leaflet */
+.leaflet-control-attribution {
+  display: none !important;
+}
+.leaflet-control-zoom {
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12) !important;
+  border-radius: 14px !important;
+  overflow: hidden;
+}
+.leaflet-control-zoom a {
+  background-color: rgba(255, 255, 255, 0.92) !important;
+  color: #1e293b !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+.dark .leaflet-control-zoom a {
+  background-color: rgba(15, 23, 42, 0.92) !important;
+  color: #f1f5f9 !important;
+  border-bottom: 1px solid #334155 !important;
 }
 
 /* Hide Scrollbar */
@@ -190,4 +205,9 @@ body {
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Modo Escuro automático para os tiles do OpenStreetMap */
+.dark .leaflet-tile-pane {
+  filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
 }
